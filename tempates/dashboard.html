@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <style>
+        /* ... (css เหมือนเดิม) ... */
+        /* ทำให้ tooltip สวยขึ้น */
+        .tooltip-inner {
+            background-color: #343a40;
+            color: white;
+            text-align: left;
+        }
+        .tooltip-arrow::before {
+            border-top-color: #343a40 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id='calendar'></div>
+
+    <div class="modal fade" id="scheduleModal" ...>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <form id="scheduleForm">
+                        <div class="mb-3">
+                            <label for="location" class="form-label">สถานที่</label>
+                            <input type="text" class="form-control" id="location" name="location">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="contact_phone" class="form-label">เบอร์ติดต่อ</label>
+                            <input type="tel" class="form-control" id="contact_phone" name="contact_phone">
+                        </div>
+
+                        <div class="row">
+                            </div>
+                    </form>
+                </div>
+                </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // ... (ตัวแปร calendarEl, scheduleModal, scheduleForm) ...
+            
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                // ... (initialView, headerToolbar, locale, buttonText, events) ...
+
+                // --- ฟังก์ชันไฮไลท์ใหม่: แสดง Tooltip เมื่อเอาเมาส์ชี้ ---
+                eventDidMount: function(info) {
+                    const props = info.event.extendedProps;
+                    const content = `
+                        <strong>ทีม:</strong> ${props.team_id}<br>
+                        <strong>งาน:</strong> ${props.details}<br>
+                        <strong>สถานที่:</strong> ${props.location}<br>
+                        <strong>ติดต่อ:</strong> ${props.contact_phone}
+                    `;
+                    new bootstrap.Tooltip(info.el, {
+                        title: content,
+                        html: true,
+                        placement: 'top',
+                        trigger: 'hover',
+                        container: 'body'
+                    });
+                },
+
+                // ... (dateClick function เหมือนเดิม) ...
+            });
+
+            calendar.render();
+
+            // --- จัดการการบันทึกข้อมูลจาก Modal (เพิ่มฟิลด์ใหม่) ---
+            document.getElementById('saveScheduleBtn').addEventListener('click', function() {
+                const formData = new FormData(scheduleForm);
+                const data = {
+                    team_id: formData.get('team_id'),
+                    task_details: formData.get('task_details'),
+                    work_date: formData.get('work_date'),
+                    start_time: formData.get('start_time'),
+                    end_time: formData.get('end_time'),
+                    location: formData.get('location'), // ดึงข้อมูลใหม่
+                    contact_phone: formData.get('contact_phone') // ดึงข้อมูลใหม่
+                };
+
+                // ... (ส่วน fetch API เหมือนเดิม) ...
+            });
+        });
+    </script>
+</body>
+</html>
