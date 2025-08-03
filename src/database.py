@@ -1,12 +1,15 @@
-# database.py
-# ... (import statements) ...
+import sqlite3
+import os
+from datetime import date
 
-# ... (DATA_DIR and DATABASE_NAME definitions) ...
+# Define the directory and database name for Render's persistent disk
+DATA_DIR = os.environ.get('RENDER_DISK_PATH', '.')
+DATABASE_NAME = os.path.join(DATA_DIR, 'schedule.db')
 
 def init_db():
+    """Create the database and table if they don't exist."""
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
-    # เพิ่ม 2 คอลัมน์ใหม่: location และ contact_phone
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS schedules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,20 +18,18 @@ def init_db():
             work_date TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
-            location TEXT,  -- เพิ่มคอลัมน์สถานที่
-            contact_phone TEXT -- เพิ่มคอลัมน์เบอร์ติดต่อ
+            location TEXT,
+            contact_phone TEXT
         )
     ''')
     conn.commit()
     conn.close()
     print("Database initialized successfully.")
 
-# ปรับปรุงฟังก์ชัน add_schedule ให้รับพารามิเตอร์เพิ่ม
 def add_schedule(team_id, task_details, work_date, start_time, end_time, location, contact_phone):
-    """เพิ่มตารางงานใหม่ลงในฐานข้อมูล"""
+    """Add a new schedule to the database."""
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
-    # เพิ่ม field ใหม่ลงในคำสั่ง INSERT
     cursor.execute(
         "INSERT INTO schedules (team_id, task_details, work_date, start_time, end_time, location, contact_phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (team_id, task_details, work_date, start_time, end_time, location, contact_phone)
@@ -36,9 +37,26 @@ def add_schedule(team_id, task_details, work_date, start_time, end_time, locatio
     conn.commit()
     conn.close()
 
-# ฟังก์ชัน get_today_schedules และ get_all_schedules ไม่ต้องแก้ไข
-# เพราะใช้ SELECT * และ sqlite3.Row ซึ่งจะดึงคอลัมน์ใหม่มาให้เองอัตโนมัติ
-# ... (ฟังก์ชันที่เหลือเหมือนเดิม) ...
+def get_today_schedules():
+    """Get all schedules for the current day."""
+    today_str = date.today().strftime('%Y-%m-%d')
+    conn = sqlite3.connect(DATABASE_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM schedules WHERE work_date = ?", (today_str,))
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+def get_all_schedules():
+    """Get all schedules from the database."""
+    conn = sqlite3.connect(DATABASE_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM schedules ORDER BY work_date, start_time")
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
 
 if __name__ == '__main__':
     init_db()
