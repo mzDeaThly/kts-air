@@ -2,7 +2,9 @@
 # ... (import statements) ...
 
 # ... (DATA_DIR and DATABASE_NAME definitions) ...
-
+import sqlite3 # <--- เพิ่มบรรทัดนี้
+from datetime import date
+import os
 def init_db():
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
