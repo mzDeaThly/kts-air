@@ -2,8 +2,7 @@ import sqlite3
 import os
 from datetime import date
 
-# Define the directory and database name
-# This part was likely missing from your file
+# Define the directory and database name for Render's persistent disk
 DATA_DIR = os.environ.get('RENDER_DISK_PATH', '.')
 DATABASE_NAME = os.path.join(DATA_DIR, 'schedule.db')
 
