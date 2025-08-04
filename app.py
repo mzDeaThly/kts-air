@@ -33,8 +33,6 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'a_default_secret_key_for_local_dev')
 
 # --- Initialize Database ---
-# ย้ายมาไว้ตรงนี้เพื่อให้ทำงานตอน Gunicorn เริ่มแอปพลิเคชัน
-# นี่คือการแก้ไขที่สำคัญ
 database.init_db()
 
 # --- LINE Bot Setup ---
@@ -107,7 +105,13 @@ scheduler.start()
 @app.route('/')
 def dashboard():
     """Renders the calendar management page."""
-    return render_template('dashboard.html')
+    # อ่านค่า ID จาก Environment Variable
+    target_ids_str = os.environ.get('LINE_TARGET_IDS', '')
+    # แปลงเป็นลิสต์ โดยตัดช่องว่างและกรองค่าที่ว่างเปล่าออก
+    target_ids = [item.strip() for item in target_ids_str.split(',') if item.strip()]
+    
+    # ส่งลิสต์ของ ID ไปยังเทมเพลต
+    return render_template('dashboard.html', target_ids=target_ids)
 
 
 # --- API Endpoints for Calendar ---
@@ -203,6 +207,4 @@ def handle_postback(event):
 
 
 if __name__ == "__main__":
-    # This block now only runs for local development
-    # The init_db() call has been moved to the top
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
