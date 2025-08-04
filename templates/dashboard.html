@@ -36,8 +36,16 @@
                         <input type="hidden" id="work_date" name="work_date">
                         
                         <div class="mb-3">
-                            <label for="team_id" class="form-label">Team ID (LINE Group ID / User ID)</label>
-                            <input type="text" class="form-control" id="team_id" name="team_id" required>
+                            <label for="team_id" class="form-label">Team ID / User ID</label>
+                            <select class="form-select" id="team_id" name="team_id" required>
+                                <option value="" selected disabled>-- กรุณาเลือก ID --</option>
+                                {% for an_id in target_ids %}
+                                    <option value="{{ an_id }}">{{ an_id }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                ค่า ID เหล่านี้ถูกจัดการผ่าน Environment Variable บน Render
+                            </div>
                         </div>
                         
                         <div class="mb-3">
