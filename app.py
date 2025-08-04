@@ -39,21 +39,28 @@ database.init_db()
 configuration = Configuration(access_token=os.environ.get('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
-# --- Team Colors Configuration ---
-# กำหนดสีสำหรับแต่ละ Team ID ที่นี่
-# คุณสามารถเพิ่ม ID และรหัสสี Hex ของคุณเองได้
+# --- Configurations ---
+# กำหนด ID และชื่อที่แสดงใน Dropdown
+TEAM_NAMES = {
+    'TEAM_A': 'ทีมช่างแอร์ 1',
+    'TEAM_B': 'ทีมช่างแอร์ 2',
+    'TEAM_C': 'ทีมช่างแอร์ 3',
+}
+
+# กำหนด ID และสีที่แสดงในปฏิทิน
 TEAM_COLORS = {
-    'C02c7a5214713a69111c1d1a641771960': '#28a745',  # สีเขียว
-    'C11111111111111111111111111111111': '#007bff',  # สีน้ำเงิน
-    'C22222222222222222222222222222222': '#dc3545',  # สีแดง
-    'C33333333333333333333333333333333': '#ffc107', # สีเหลือง
-    'C44444444444444444444444444444444': '#17a2b8', # สีฟ้าอมเขียว
+    'TEAM_A': '#28a745',  # สีเขียว
+    'TEAM_B': '#007bff',  # สีน้ำเงิน
+    'TEAM_C': '#dc3545',  # สีแดง
 }
 
 
 # --- Scheduler for Automatic Notifications ---
 def send_daily_schedules():
-    """Function to be run daily at 7 AM to send schedule summaries."""
+    """
+    ส่งสรุปตารางงานประจำวันไปยังสมาชิกในแต่ละทีม
+    โดยดึงรายชื่อผู้รับจาก Environment Variables
+    """
     with app.app_context():
         print(f"[{datetime.now()}] Running daily schedule job...")
         schedules = database.get_today_schedules()
@@ -61,6 +68,7 @@ def send_daily_schedules():
             print("No schedules for today.")
             return
 
+        # 1. จัดกลุ่มงานตาม Team ID
         team_tasks = defaultdict(list)
         for schedule in schedules:
             team_tasks[schedule['team_id']].append(schedule)
@@ -68,44 +76,50 @@ def send_daily_schedules():
         api_client = ApiClient(configuration)
         line_bot_api = MessagingApi(api_client)
 
+        # 2. วนลูปส่งข้อความให้แต่ละทีม
         for team_id, tasks in team_tasks.items():
+            print(f"Processing tasks for team: {team_id}")
+
+            # 3. ดึงรายชื่อผู้รับ (User IDs) จาก Environment Variable
+            env_key = f'LINE_USERS_{team_id}'
+            recipients_str = os.environ.get(env_key, '')
+            recipients = [uid.strip() for uid in recipients_str.split(',') if uid.strip()]
+
+            if not recipients:
+                print(f"No recipients found for team {team_id} (env var {env_key} is empty or not set). Skipping.")
+                continue
+
+            # 4. สร้างข้อความสรุปงานสำหรับทีมนั้นๆ
+            team_display_name = TEAM_NAMES.get(team_id, team_id)
+            tasks_details_list = []
+            for task in tasks:
+                task_detail_str = (
+                    f"📄 งาน: {task['task_details']}\n"
+                    f"⏰ เวลา: {task['start_time']} - {task['end_time']}\n"
+                    f"📍 สถานที่: {task.get('location', '-')}\n"
+                    f"📞 ติดต่อ: {task.get('contact_phone', '-')}"
+                )
+                tasks_details_list.append(task_detail_str)
+            
+            tasks_string = "\n--------------------\n".join(tasks_details_list)
+            message_text = (
+                f"📢 สรุปตารางงานสำหรับ {team_display_name} วันนี้!\n"
+                f"--------------------\n"
+                f"{tasks_string}"
+            )
+
+            summary_message = TextMessage(text=message_text)
+
+            # 5. ส่งข้อความหาทุกคนในทีมด้วย multicast
             try:
-                tasks_details_list = []
-                for task in tasks:
-                    task_detail_str = (
-                        f"📄 งาน: {task['task_details']}\n"
-                        f"⏰ เวลา: {task['start_time']} - {task['end_time']}\n"
-                        f"📍 สถานที่: {task.get('location', '-')}\n"
-                        f"📞 ติดต่อ: {task.get('contact_phone', '-')}"
-                    )
-                    tasks_details_list.append(task_detail_str)
-
-                tasks_string = "\n--------------------\n".join(tasks_details_list)
-
-                message_text = (
-                    f"📢 สรุปตารางงานทั้งหมดสำหรับวันนี้!\n"
-                    f"--------------------\n"
-                    f"{tasks_string}"
+                line_bot_api.multicast(
+                    to=recipients,
+                    messages=[summary_message]
                 )
-
-                template_message = TemplateMessage(
-                    alt_text='แจ้งเตือนตารางงาน',
-                    template=ButtonsTemplate(
-                        title='แจ้งเตือนตารางงาน',
-                        text=message_text,
-                        actions=[
-                            PostbackAction(
-                                label='โอเค 👍',
-                                data='action=confirm_schedule'
-                            )
-                        ]
-                    )
-                )
-
-                line_bot_api.push_message(team_id, messages=[template_message])
-                print(f"Sent consolidated schedule to {team_id}")
+                print(f"Successfully sent schedule summary to {len(recipients)} members of team {team_id}.")
             except Exception as e:
-                print(f"Error sending to {team_id}: {e}")
+                print(f"Error sending multicast to team {team_id}: {e}")
+
 
 scheduler = BackgroundScheduler(timezone=timezone('Asia/Bangkok'))
 scheduler.add_job(send_daily_schedules, 'cron', hour=7, minute=0)
@@ -119,8 +133,8 @@ def dashboard():
     target_ids_str = os.environ.get('LINE_TARGET_IDS', '')
     target_ids = [item.strip() for item in target_ids_str.split(',') if item.strip()]
     
-    # ส่งลิสต์ของ ID และ Dictionary สี ไปยังเทมเพลต
-    return render_template('dashboard.html', target_ids=target_ids, team_colors=TEAM_COLORS)
+    # ส่ง Dictionary ทั้งหมดไปยังเทมเพลต
+    return render_template('dashboard.html', target_ids=target_ids, team_names=TEAM_NAMES, team_colors=TEAM_COLORS)
 
 
 # --- API Endpoints for Calendar ---
@@ -131,14 +145,14 @@ def api_get_schedules():
     events = []
     for schedule in schedules:
         team_id = schedule['team_id']
-        # ดึงสีจาก Dictionary ถ้าไม่เจอจะใช้สีเทาเป็นค่าเริ่มต้น
+        team_display_name = TEAM_NAMES.get(team_id, team_id)
         color = TEAM_COLORS.get(team_id, '#6c757d') 
         
         events.append({
-            'title': schedule['task_details'],
+            'title': f"({team_display_name}) {schedule['task_details']}", # เพิ่มชื่อทีมในชื่องาน
             'start': f"{schedule['work_date']}T{schedule['start_time']}",
             'end': f"{schedule['work_date']}T{schedule['end_time']}",
-            'color': color,  # เพิ่ม Property สีสำหรับ FullCalendar
+            'color': color,
             'extendedProps': {
                 'team_id': team_id,
                 'details': schedule['task_details'],
