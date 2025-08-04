@@ -36,16 +36,14 @@
                         <input type="hidden" id="work_date" name="work_date">
                         
                         <div class="mb-3">
-                            <label for="team_id" class="form-label">Team ID / User ID</label>
+                            <label for="team_id" class="form-label">เลือกทีม</label>
                             <select class="form-select" id="team_id" name="team_id" required>
-                                <option value="" selected disabled>-- กรุณาเลือก ID --</option>
+                                <option value="" selected disabled>-- กรุณาเลือกทีม --</option>
                                 {% for an_id in target_ids %}
-                                    <option value="{{ an_id }}">{{ an_id }}</option>
+                                    {# ค่าที่ส่งไปหลังบ้านคือ an_id แต่ที่แสดงให้ผู้ใช้เห็นคือชื่อจาก team_names #}
+                                    <option value="{{ an_id }}">{{ team_names.get(an_id, an_id) }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">
-                                ค่า ID เหล่านี้ถูกจัดการผ่าน Environment Variable บน Render
-                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -111,8 +109,13 @@
                 // Show details on hover
                 eventDidMount: function(info) {
                     const props = info.event.extendedProps;
+                    // ดึงชื่อทีมจาก Dictionary ที่ส่งมา
+                    const teamColors = {{ team_colors | tojson }};
+                    const teamNames = {{ team_names | tojson }};
+                    const teamName = teamNames[props.team_id] || props.team_id;
+
                     const content = `
-                        <strong>ทีม:</strong> ${props.team_id}<br>
+                        <strong>ทีม:</strong> ${teamName}<br>
                         <strong>งาน:</strong> ${props.details}<br>
                         <strong>สถานที่:</strong> ${props.location}<br>
                         <strong>ติดต่อ:</strong> ${props.contact_phone}
@@ -161,7 +164,7 @@
                 .then(result => {
                     if (result.status === 'success') {
                         scheduleModal.hide();
-                        calendar.refetchEvents();
+                        calendar.refetchEvents(); // Refresh a anlendar to show new event
                     } else {
                         alert('เกิดข้อผิดพลาด: ' + result.message);
                     }
