@@ -39,6 +39,17 @@ database.init_db()
 configuration = Configuration(access_token=os.environ.get('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
+# --- Team Colors Configuration ---
+# กำหนดสีสำหรับแต่ละ Team ID ที่นี่
+# คุณสามารถเพิ่ม ID และรหัสสี Hex ของคุณเองได้
+TEAM_COLORS = {
+    'C02c7a5214713a69111c1d1a641771960': '#28a745',  # สีเขียว
+    'C11111111111111111111111111111111': '#007bff',  # สีน้ำเงิน
+    'C22222222222222222222222222222222': '#dc3545',  # สีแดง
+    'C33333333333333333333333333333333': '#ffc107', # สีเหลือง
+    'C44444444444444444444444444444444': '#17a2b8', # สีฟ้าอมเขียว
+}
+
 
 # --- Scheduler for Automatic Notifications ---
 def send_daily_schedules():
@@ -105,13 +116,11 @@ scheduler.start()
 @app.route('/')
 def dashboard():
     """Renders the calendar management page."""
-    # อ่านค่า ID จาก Environment Variable
     target_ids_str = os.environ.get('LINE_TARGET_IDS', '')
-    # แปลงเป็นลิสต์ โดยตัดช่องว่างและกรองค่าที่ว่างเปล่าออก
     target_ids = [item.strip() for item in target_ids_str.split(',') if item.strip()]
     
-    # ส่งลิสต์ของ ID ไปยังเทมเพลต
-    return render_template('dashboard.html', target_ids=target_ids)
+    # ส่งลิสต์ของ ID และ Dictionary สี ไปยังเทมเพลต
+    return render_template('dashboard.html', target_ids=target_ids, team_colors=TEAM_COLORS)
 
 
 # --- API Endpoints for Calendar ---
@@ -121,12 +130,17 @@ def api_get_schedules():
     schedules = database.get_all_schedules()
     events = []
     for schedule in schedules:
+        team_id = schedule['team_id']
+        # ดึงสีจาก Dictionary ถ้าไม่เจอจะใช้สีเทาเป็นค่าเริ่มต้น
+        color = TEAM_COLORS.get(team_id, '#6c757d') 
+        
         events.append({
             'title': schedule['task_details'],
             'start': f"{schedule['work_date']}T{schedule['start_time']}",
             'end': f"{schedule['work_date']}T{schedule['end_time']}",
+            'color': color,  # เพิ่ม Property สีสำหรับ FullCalendar
             'extendedProps': {
-                'team_id': schedule['team_id'],
+                'team_id': team_id,
                 'details': schedule['task_details'],
                 'location': schedule.get('location', '-'),
                 'contact_phone': schedule.get('contact_phone', '-')
