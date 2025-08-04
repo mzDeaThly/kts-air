@@ -32,6 +32,11 @@ import database
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'a_default_secret_key_for_local_dev')
 
+# --- Initialize Database ---
+# ย้ายมาไว้ตรงนี้เพื่อให้ทำงานตอน Gunicorn เริ่มแอปพลิเคชัน
+# นี่คือการแก้ไขที่สำคัญ
+database.init_db()
+
 # --- LINE Bot Setup ---
 configuration = Configuration(access_token=os.environ.get('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
@@ -198,7 +203,6 @@ def handle_postback(event):
 
 
 if __name__ == "__main__":
-    # Initialize the DB on app start to create tables if they don't exist
-    database.init_db()
-    # Run the Flask app on the port provided by Render
+    # This block now only runs for local development
+    # The init_db() call has been moved to the top
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
