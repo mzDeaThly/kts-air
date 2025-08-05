@@ -1,23 +1,3 @@
-# ================== ULTIMATE DEBUG CODE START ==================
-# โค้ดส่วนนี้จะแสดงรายชื่อทุกอย่างที่มีใน exceptions module
-try:
-    from linebot.v3 import exceptions
-    import inspect
-
-    print("--- DEBUG: Listing contents of linebot.v3.exceptions ---")
-    # ดึงรายชื่อ members ทั้งหมดใน module
-    all_members = inspect.getmembers(exceptions)
-    # พิมพ์ชื่อของแต่ละ member ออกมา
-    for name, obj in all_members:
-        print(f"--- Member: {name}")
-    print("--- DEBUG: End of list ---")
-
-except ImportError:
-    print("--- DEBUG: FAILED to import linebot.v3.exceptions module itself. ---")
-except Exception as e:
-    print(f"--- DEBUG: An unexpected error occurred during inspection: {e} ---")
-# =================== ULTIMATE DEBUG CODE END ===================
-
 import os
 from flask import Flask, request, abort, render_template, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -29,14 +9,14 @@ from linebot.v3 import (
     WebhookHandler
 )
 from linebot.v3.exceptions import (
-    InvalidSignatureError,
-    LineBotSdkApiError
+    InvalidSignatureError
 )
 from linebot.v3.messaging import (
     Configuration,
     ApiClient,
     MessagingApi,
-    TextMessage
+    TextMessage,
+    ApiException  # <<< Import คลาสที่ถูกต้องจากที่นี่
 )
 from linebot.v3.webhooks import (
     MessageEvent,
@@ -59,15 +39,13 @@ handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
 # --- Configurations ---
 TEAM_NAMES = {
-    'TEAM_A': 'ทีมช่างแอร์',
-    'TEAM_B': 'ทีมซ่อมบำรุง',
-    'TEAM_C': 'ทีมติดตั้ง',
+    'TEAM_A': 'ช่างแอร์ ทีม A',
+    'TEAM_B': 'ช่องแอร์ ทีม B',
 }
 
 TEAM_COLORS = {
     'TEAM_A': '#28a745',
     'TEAM_B': '#007bff',
-    'TEAM_C': '#dc3545',
 }
 
 
@@ -123,8 +101,8 @@ def send_daily_schedules():
                     messages=[summary_message]
                 )
                 print(f"Successfully sent schedule summary to group for team {team_id} (Group ID: {target_group_id}).")
-            except Exception as e:
-                print(f"Error sending push message to group {target_group_id}: {e}")
+            except ApiException as e:
+                print(f"Error sending push message to group {target_group_id}: {e.body}")
         
         return "Notification job completed."
 
@@ -173,7 +151,7 @@ def handle_message(event):
                     messages=[TextMessage(text=f"This chat's ID is: {reply_id}")]
                 )
 
-            elif text == "/send_now":
+            elif text == "send_now":
                 admin_users_str = os.environ.get('LINE_ADMIN_USERS', '')
                 admin_users = [uid.strip() for uid in admin_users_str.split(',') if uid.strip()]
 
@@ -188,8 +166,8 @@ def handle_message(event):
                         reply_token,
                         messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
                     )
-        except LineBotSdkApiError as e:
-            app.logger.error(f"Error replying to message: {e.message}")
+        except ApiException as e: # <<< แก้ไขการดักจับ Error ให้ถูกต้อง
+            app.logger.error(f"Error replying to message: {e.body}")
             print(f"Could not reply to user {user_id}. The reply token might be invalid or expired.")
 
 
@@ -205,8 +183,8 @@ def handle_postback(event):
                     event.reply_token,
                     messages=[TextMessage(text="รับทราบครับ! ✅")]
                 )
-            except LineBotSdkApiError as e:
-                app.logger.error(f"Error replying to postback: {e.message}")
+            except ApiException as e: # <<< แก้ไขการดักจับ Error ให้ถูกต้อง
+                app.logger.error(f"Error replying to postback: {e.body}")
                 print(f"Could not reply to user {user_id} on postback. The reply token was likely expired.")
 
 
