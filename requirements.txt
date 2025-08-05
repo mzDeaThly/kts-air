@@ -3,3 +3,4 @@ line-bot-sdk
 apscheduler
 pytz
 gunicorn
+psycopg2-binary
