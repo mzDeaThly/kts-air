@@ -1,5 +1,5 @@
 Flask
-line-bot-sdk
+line-bot-sdk>=3.7.0
 apscheduler
 pytz
 gunicorn
