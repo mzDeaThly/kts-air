@@ -9,7 +9,8 @@ from linebot.v3 import (
     WebhookHandler
 )
 from linebot.v3.exceptions import (
-    InvalidSignatureError
+    InvalidSignatureError,
+    LineBotApiError  # เพิ่มการ import สำหรับดักจับ Error
 )
 from linebot.v3.messaging import (
     Configuration,
@@ -38,8 +39,8 @@ handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
 # --- Configurations ---
 TEAM_NAMES = {
-    'TEAM_A': 'ทีม A (ระบุชื่อสมาชิก เช่น กี้)',
-    'TEAM_B': 'ทีม B (ระบุชือสมาชิก เช่น บี)',
+    'TEAM_A': 'ทีม A ช่างแอร์',
+    'TEAM_B': 'ทีม B ช่องแอร์',
 }
 
 TEAM_COLORS = {
@@ -50,9 +51,6 @@ TEAM_COLORS = {
 
 # --- Main Notification Function ---
 def send_daily_schedules():
-    """
-    ส่งสรุปตารางงานประจำวันไปยัง "แชทกลุ่ม" ของแต่ละทีม
-    """
     with app.app_context():
         print(f"[{datetime.now()}] Running daily schedule job for groups...")
         schedules = database.get_today_schedules()
@@ -118,16 +116,12 @@ print("APScheduler has started successfully.")
 # --- Web Dashboard ---
 @app.route('/')
 def dashboard():
-    """Renders the calendar management page."""
     target_ids_str = os.environ.get('LINE_TARGET_IDS', '')
     target_ids = [item.strip() for item in target_ids_str.split(',') if item.strip()]
     return render_template('dashboard.html', target_ids=target_ids, team_names=TEAM_NAMES, team_colors=TEAM_COLORS)
 
 
 # --- API & Webhook Endpoints ---
-# (ส่วนนี้เหมือนเดิม ยกเว้น handle_message ที่ถูกแก้ไข และ /test/send_now ที่ถูกลบ)
-
-# --- LINE Webhook ---
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -141,11 +135,6 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
-    """
-    จัดการข้อความที่ส่งมายังบอท
-    - ตอบกลับ ID เมื่อพิมพ์ "my id"
-    - สั่งรันการแจ้งเตือนเมื่อแอดมินพิมพ์ "/send_now"
-    """
     text = event.message.text.lower()
     user_id = event.source.user_id
     reply_token = event.reply_token
@@ -153,35 +142,35 @@ def handle_message(event):
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
 
-        # คำสั่งขอ ID
-        if text == "my id":
-            group_id = event.source.group_id if event.source.type == 'group' else None
-            reply_id = group_id if group_id else user_id
-            line_bot_api.reply_message_with_http_info(
-                reply_token,
-                messages=[TextMessage(text=f"This chat's ID is: {reply_id}")]
-            )
-
-        # คำสั่งทดสอบการส่งข้อมูลทันที
-        elif text == "/send_now":
-            # 1. อ่านรายชื่อแอดมินจาก Environment Variable
-            admin_users_str = os.environ.get('LINE_ADMIN_USERS', '')
-            admin_users = [uid.strip() for uid in admin_users_str.split(',') if uid.strip()]
-
-            # 2. ตรวจสอบว่าผู้ใช้เป็นแอดมินหรือไม่
-            if user_id in admin_users:
-                # 3. ถ้าเป็นแอดมิน ให้ตอบกลับและสั่งรันฟังก์ชัน
+        try:
+            if text == "my id":
+                group_id = event.source.group_id if event.source.type == 'group' else None
+                reply_id = group_id if group_id else user_id
                 line_bot_api.reply_message_with_http_info(
                     reply_token,
-                    messages=[TextMessage(text="✅ รับทราบ! กำลังสั่งให้ระบบส่งสรุปงานของวันนี้ทันที...")]
+                    messages=[TextMessage(text=f"This chat's ID is: {reply_id}")]
                 )
-                send_daily_schedules() # สั่งรันฟังก์ชัน
-            else:
-                # 4. ถ้าไม่ใช่แอดมิน ให้ตอบกลับว่าไม่มีสิทธิ์
-                line_bot_api.reply_message_with_http_info(
-                    reply_token,
-                    messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
-                )
+
+            elif text == "/send_now":
+                admin_users_str = os.environ.get('LINE_ADMIN_USERS', '')
+                admin_users = [uid.strip() for uid in admin_users_str.split(',') if uid.strip()]
+
+                if user_id in admin_users:
+                    line_bot_api.reply_message_with_http_info(
+                        reply_token,
+                        messages=[TextMessage(text="✅ รับทราบ! กำลังสั่งให้ระบบส่งสรุปงานของวันนี้ทันที...")]
+                    )
+                    send_daily_schedules()
+                else:
+                    line_bot_api.reply_message_with_http_info(
+                        reply_token,
+                        messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
+                    )
+        except LineBotApiError as e:
+            # ดักจับ Error หาก Reply Token หมดอายุหรือใช้งานไม่ได้
+            app.logger.error(f"Error replying to message: {e.message}")
+            print(f"Could not reply to user {user_id}. The reply token might be invalid or expired.")
+
 
 @handler.add(PostbackEvent)
 def handle_postback(event):
@@ -190,12 +179,61 @@ def handle_postback(event):
         print(f"User {user_id} confirmed the schedule.")
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message_with_http_info(
-                event.reply_token,
-                messages=[TextMessage(text="รับทราบครับ! ✅")]
-            )
+            try:
+                line_bot_api.reply_message_with_http_info(
+                    event.reply_token,
+                    messages=[TextMessage(text="รับทราบครับ! ✅")]
+                )
+            except LineBotApiError as e:
+                # ดักจับ Error หาก Reply Token หมดอายุ (เช่น กดปุ่มบนข้อความเก่าๆ)
+                app.logger.error(f"Error replying to postback: {e.message}")
+                print(f"Could not reply to user {user_id} on postback. The reply token was likely expired.")
 
-# (ส่วนที่เหลือที่ไม่เกี่ยวข้องถูกลบไปเพื่อความกระชับ)
-# ...
+
+# (ส่วน API ของ Dashboard ไม่มีการเปลี่ยนแปลง)
+@app.route('/api/schedules', methods=['GET'])
+def api_get_schedules():
+    schedules = database.get_all_schedules()
+    events = []
+    for schedule in schedules:
+        team_id = schedule['team_id']
+        team_display_name = TEAM_NAMES.get(team_id, team_id)
+        color = TEAM_COLORS.get(team_id, '#6c757d') 
+        
+        events.append({
+            'title': f"({team_display_name}) {schedule['task_details']}",
+            'start': f"{schedule['work_date']}T{schedule['start_time']}",
+            'end': f"{schedule['work_date']}T{schedule['end_time']}",
+            'color': color,
+            'extendedProps': {
+                'team_id': team_id,
+                'details': schedule['task_details'],
+                'location': schedule.get('location', '-'),
+                'contact_phone': schedule.get('contact_phone', '-')
+            }
+        })
+    return jsonify(events)
+
+@app.route('/api/schedules', methods=['POST'])
+def api_add_schedule():
+    data = request.get_json()
+    try:
+        team_id = data['team_id']
+        task_details = data['task_details']
+        work_date = data['work_date']
+        start_time = data['start_time']
+        end_time = data['end_time']
+        location = data.get('location', '')
+        contact_phone = data.get('contact_phone', '')
+        if not all([team_id, task_details, work_date, start_time, end_time]):
+            return jsonify({'status': 'error', 'message': 'Missing required data'}), 400
+        database.add_schedule(team_id, task_details, work_date, start_time, end_time, location, contact_phone)
+        return jsonify({'status': 'success', 'message': 'Schedule added successfully'})
+    except KeyError:
+        return jsonify({'status': 'error', 'message': 'Invalid data format'}), 400
+    except Exception as e:
+        app.logger.error(f"Error adding schedule: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
