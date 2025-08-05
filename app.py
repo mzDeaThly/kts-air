@@ -1,3 +1,17 @@
+# ================== DEBUG CODE START ==================
+# โค้ดส่วนนี้ถูกเพิ่มเข้ามาเพื่อตรวจสอบเวอร์ชันของ Library ที่ติดตั้งจริง
+import pkg_resources
+try:
+    # พยายามดึงเวอร์ชันของ line-bot-sdk ที่ติดตั้งอยู่
+    installed_version = pkg_resources.get_distribution('line-bot-sdk').version
+    print(f"--- DEBUG: Found line-bot-sdk version: {installed_version} ---")
+except pkg_resources.DistributionNotFound:
+    print("--- DEBUG: line-bot-sdk is NOT installed. ---")
+except Exception as e:
+    print(f"--- DEBUG: Error while checking package version: {e} ---")
+# =================== DEBUG CODE END ===================
+
+
 import os
 from flask import Flask, request, abort, render_template, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -10,7 +24,7 @@ from linebot.v3 import (
 )
 from linebot.v3.exceptions import (
     InvalidSignatureError,
-    LineBotApiError  # เพิ่มการ import สำหรับดักจับ Error
+    LineBotApiError  # บรรทัดนี้คือจุดที่เคยเกิดปัญหา
 )
 from linebot.v3.messaging import (
     Configuration,
@@ -26,6 +40,7 @@ from linebot.v3.webhooks import (
 
 import database
 
+# (โค้ดส่วนที่เหลือทั้งหมดเหมือนเดิม ไม่มีการเปลี่ยนแปลง)
 # --- Basic Setup ---
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'a_default_secret_key_for_local_dev')
@@ -39,13 +54,15 @@ handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
 # --- Configurations ---
 TEAM_NAMES = {
-    'TEAM_A': 'ทีม A ช่างแอร์',
-    'TEAM_B': 'ทีม B ช่องแอร์',
+    'TEAM_A': 'ทีมช่างแอร์',
+    'TEAM_B': 'ทีมซ่อมบำรุง',
+    'TEAM_C': 'ทีมติดตั้ง',
 }
 
 TEAM_COLORS = {
     'TEAM_A': '#28a745',
     'TEAM_B': '#007bff',
+    'TEAM_C': '#dc3545',
 }
 
 
@@ -167,7 +184,6 @@ def handle_message(event):
                         messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
                     )
         except LineBotApiError as e:
-            # ดักจับ Error หาก Reply Token หมดอายุหรือใช้งานไม่ได้
             app.logger.error(f"Error replying to message: {e.message}")
             print(f"Could not reply to user {user_id}. The reply token might be invalid or expired.")
 
@@ -185,12 +201,10 @@ def handle_postback(event):
                     messages=[TextMessage(text="รับทราบครับ! ✅")]
                 )
             except LineBotApiError as e:
-                # ดักจับ Error หาก Reply Token หมดอายุ (เช่น กดปุ่มบนข้อความเก่าๆ)
                 app.logger.error(f"Error replying to postback: {e.message}")
                 print(f"Could not reply to user {user_id} on postback. The reply token was likely expired.")
 
 
-# (ส่วน API ของ Dashboard ไม่มีการเปลี่ยนแปลง)
 @app.route('/api/schedules', methods=['GET'])
 def api_get_schedules():
     schedules = database.get_all_schedules()
