@@ -16,7 +16,8 @@ from linebot.v3.messaging import (
     ApiClient,
     MessagingApi,
     TextMessage,
-    ApiException  # <<< Import คลาสที่ถูกต้องจากที่นี่
+    ApiException,
+    ReplyMessageRequest  # <<< เพิ่มการ import ที่จำเป็น
 )
 from linebot.v3.webhooks import (
     MessageEvent,
@@ -146,9 +147,12 @@ def handle_message(event):
             if text == "my id":
                 group_id = event.source.group_id if event.source.type == 'group' else None
                 reply_id = group_id if group_id else user_id
+                # <<< แก้ไขการเรียก API ให้ถูกต้อง
                 line_bot_api.reply_message_with_http_info(
-                    reply_token,
-                    messages=[TextMessage(text=f"This chat's ID is: {reply_id}")]
+                    ReplyMessageRequest(
+                        reply_token=reply_token,
+                        messages=[TextMessage(text=f"This chat's ID is: {reply_id}")]
+                    )
                 )
 
             elif text == "send_now":
@@ -156,17 +160,23 @@ def handle_message(event):
                 admin_users = [uid.strip() for uid in admin_users_str.split(',') if uid.strip()]
 
                 if user_id in admin_users:
+                    # <<< แก้ไขการเรียก API ให้ถูกต้อง
                     line_bot_api.reply_message_with_http_info(
-                        reply_token,
-                        messages=[TextMessage(text="✅ รับทราบ! กำลังสั่งให้ระบบส่งสรุปงานของวันนี้ทันที...")]
+                        ReplyMessageRequest(
+                            reply_token=reply_token,
+                            messages=[TextMessage(text="✅ รับทราบ! กำลังสั่งให้ระบบส่งสรุปงานของวันนี้ทันที...")]
+                        )
                     )
                     send_daily_schedules()
                 else:
+                    # <<< แก้ไขการเรียก API ให้ถูกต้อง
                     line_bot_api.reply_message_with_http_info(
-                        reply_token,
-                        messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
+                        ReplyMessageRequest(
+                            reply_token=reply_token,
+                            messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
+                        )
                     )
-        except ApiException as e: # <<< แก้ไขการดักจับ Error ให้ถูกต้อง
+        except ApiException as e:
             app.logger.error(f"Error replying to message: {e.body}")
             print(f"Could not reply to user {user_id}. The reply token might be invalid or expired.")
 
@@ -179,11 +189,14 @@ def handle_postback(event):
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             try:
+                # <<< แก้ไขการเรียก API ให้ถูกต้อง
                 line_bot_api.reply_message_with_http_info(
-                    event.reply_token,
-                    messages=[TextMessage(text="รับทราบครับ! ✅")]
+                    ReplyMessageRequest(
+                        reply_token=event.reply_token,
+                        messages=[TextMessage(text="รับทราบครับ! ✅")]
+                    )
                 )
-            except ApiException as e: # <<< แก้ไขการดักจับ Error ให้ถูกต้อง
+            except ApiException as e:
                 app.logger.error(f"Error replying to postback: {e.body}")
                 print(f"Could not reply to user {user_id} on postback. The reply token was likely expired.")
 
