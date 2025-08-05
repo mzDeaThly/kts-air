@@ -38,15 +38,13 @@ handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
 # --- Configurations ---
 TEAM_NAMES = {
-    'TEAM_A': 'ทีมช่างแอร์',
-    'TEAM_B': 'ทีมซ่อมบำรุง',
-    'TEAM_C': 'ทีมติดตั้ง',
+    'TEAM_A': 'ทีม A (ระบุชื่อสมาชิก เช่น กี้)',
+    'TEAM_B': 'ทีม B (ระบุชือสมาชิก เช่น บี)',
 }
 
 TEAM_COLORS = {
     'TEAM_A': '#28a745',
     'TEAM_B': '#007bff',
-    'TEAM_C': '#dc3545',
 }
 
 
