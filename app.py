@@ -1,3 +1,23 @@
+# ================== ULTIMATE DEBUG CODE START ==================
+# โค้ดส่วนนี้จะแสดงรายชื่อทุกอย่างที่มีใน exceptions module
+try:
+    from linebot.v3 import exceptions
+    import inspect
+
+    print("--- DEBUG: Listing contents of linebot.v3.exceptions ---")
+    # ดึงรายชื่อ members ทั้งหมดใน module
+    all_members = inspect.getmembers(exceptions)
+    # พิมพ์ชื่อของแต่ละ member ออกมา
+    for name, obj in all_members:
+        print(f"--- Member: {name}")
+    print("--- DEBUG: End of list ---")
+
+except ImportError:
+    print("--- DEBUG: FAILED to import linebot.v3.exceptions module itself. ---")
+except Exception as e:
+    print(f"--- DEBUG: An unexpected error occurred during inspection: {e} ---")
+# =================== ULTIMATE DEBUG CODE END ===================
+
 import os
 from flask import Flask, request, abort, render_template, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -10,7 +30,7 @@ from linebot.v3 import (
 )
 from linebot.v3.exceptions import (
     InvalidSignatureError,
-    LineBotSdkApiError  # <-- แก้ไขชื่อคลาสให้ถูกต้อง
+    LineBotSdkApiError
 )
 from linebot.v3.messaging import (
     Configuration,
@@ -39,13 +59,15 @@ handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 
 # --- Configurations ---
 TEAM_NAMES = {
-    'TEAM_A': 'ทีมช่างแอร์_A',
-    'TEAM_B': 'ทีมช่องแอร์_B',
+    'TEAM_A': 'ทีมช่างแอร์',
+    'TEAM_B': 'ทีมซ่อมบำรุง',
+    'TEAM_C': 'ทีมติดตั้ง',
 }
 
 TEAM_COLORS = {
     'TEAM_A': '#28a745',
     'TEAM_B': '#007bff',
+    'TEAM_C': '#dc3545',
 }
 
 
@@ -151,7 +173,7 @@ def handle_message(event):
                     messages=[TextMessage(text=f"This chat's ID is: {reply_id}")]
                 )
 
-            elif text == "send_now":
+            elif text == "/send_now":
                 admin_users_str = os.environ.get('LINE_ADMIN_USERS', '')
                 admin_users = [uid.strip() for uid in admin_users_str.split(',') if uid.strip()]
 
@@ -166,7 +188,7 @@ def handle_message(event):
                         reply_token,
                         messages=[TextMessage(text="❌ ขออภัย คุณไม่มีสิทธิ์ใช้คำสั่งนี้")]
                     )
-        except LineBotSdkApiError as e: # <-- แก้ไขชื่อคลาสให้ถูกต้อง
+        except LineBotSdkApiError as e:
             app.logger.error(f"Error replying to message: {e.message}")
             print(f"Could not reply to user {user_id}. The reply token might be invalid or expired.")
 
@@ -183,7 +205,7 @@ def handle_postback(event):
                     event.reply_token,
                     messages=[TextMessage(text="รับทราบครับ! ✅")]
                 )
-            except LineBotSdkApiError as e: # <-- แก้ไขชื่อคลาสให้ถูกต้อง
+            except LineBotSdkApiError as e:
                 app.logger.error(f"Error replying to postback: {e.message}")
                 print(f"Could not reply to user {user_id} on postback. The reply token was likely expired.")
 
