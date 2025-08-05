@@ -17,7 +17,8 @@ from linebot.v3.messaging import (
     MessagingApi,
     TextMessage,
     ApiException,
-    ReplyMessageRequest  # <<< เพิ่มการ import ที่จำเป็น
+    ReplyMessageRequest,
+    PushMessageRequest  # <<< เพิ่มการ import ที่จำเป็น
 )
 from linebot.v3.webhooks import (
     MessageEvent,
@@ -41,7 +42,7 @@ handler = WebhookHandler(os.environ.get('LINE_CHANNEL_SECRET'))
 # --- Configurations ---
 TEAM_NAMES = {
     'TEAM_A': 'ช่างแอร์ ทีม A',
-    'TEAM_B': 'ช่องแอร์ ทีม B',
+    'TEAM_B': 'ช่างแอร์ ทีม B',
 }
 
 TEAM_COLORS = {
@@ -52,6 +53,9 @@ TEAM_COLORS = {
 
 # --- Main Notification Function ---
 def send_daily_schedules():
+    """
+    ส่งสรุปตารางงานประจำวันไปยัง "แชทกลุ่ม" ของแต่ละทีม
+    """
     with app.app_context():
         print(f"[{datetime.now()}] Running daily schedule job for groups...")
         schedules = database.get_today_schedules()
@@ -97,9 +101,12 @@ def send_daily_schedules():
             summary_message = TextMessage(text=message_text)
 
             try:
+                # <<< แก้ไขการเรียก API ให้ถูกต้อง
                 line_bot_api.push_message(
-                    to=target_group_id,
-                    messages=[summary_message]
+                    PushMessageRequest(
+                        to=target_group_id,
+                        messages=[summary_message]
+                    )
                 )
                 print(f"Successfully sent schedule summary to group for team {team_id} (Group ID: {target_group_id}).")
             except ApiException as e:
@@ -147,7 +154,6 @@ def handle_message(event):
             if text == "my id":
                 group_id = event.source.group_id if event.source.type == 'group' else None
                 reply_id = group_id if group_id else user_id
-                # <<< แก้ไขการเรียก API ให้ถูกต้อง
                 line_bot_api.reply_message_with_http_info(
                     ReplyMessageRequest(
                         reply_token=reply_token,
@@ -160,7 +166,6 @@ def handle_message(event):
                 admin_users = [uid.strip() for uid in admin_users_str.split(',') if uid.strip()]
 
                 if user_id in admin_users:
-                    # <<< แก้ไขการเรียก API ให้ถูกต้อง
                     line_bot_api.reply_message_with_http_info(
                         ReplyMessageRequest(
                             reply_token=reply_token,
@@ -169,7 +174,6 @@ def handle_message(event):
                     )
                     send_daily_schedules()
                 else:
-                    # <<< แก้ไขการเรียก API ให้ถูกต้อง
                     line_bot_api.reply_message_with_http_info(
                         ReplyMessageRequest(
                             reply_token=reply_token,
@@ -189,7 +193,6 @@ def handle_postback(event):
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             try:
-                # <<< แก้ไขการเรียก API ให้ถูกต้อง
                 line_bot_api.reply_message_with_http_info(
                     ReplyMessageRequest(
                         reply_token=event.reply_token,
